@@ -32,6 +32,8 @@ Config is stored at `~/.config/rankgeo/config.json` (mode 600).
 - **GEO Score** — 0-100 metric: `mention_rate × 0.6 + citation_rate × 0.4`
 - **Audit** — a GEO Score check run against Gemini with Google Search grounding.
 - **Suggestion** — AI-generated recommendation to improve score. Statuses: `pending`, `applied`, `dismissed`.
+- **Keyword** — a search term monitored during audits to check brand visibility.
+- **Competitor** — a rival brand tracked in audit prompts to measure share of voice.
 
 ## Workspace commands
 
@@ -44,6 +46,67 @@ rankgeo workspace delete <id-or-name>                       # Remove
 ```
 
 Every command that needs a workspace resolves it in this order: `--workspace` flag > `current_workspace` in config > positional arg. Name resolution performs a one-shot lookup.
+
+## Keyword commands
+
+Keywords are the search terms used to generate audit prompts. They determine what queries Gemini is tested against.
+
+```bash
+rankgeo keyword list <ws>                         # List all keywords
+rankgeo keyword add <ws> "new keyword"            # Add a keyword
+rankgeo keyword remove <ws> <keyword-id>          # Remove a keyword
+```
+
+Options:
+- `rankgeo keyword list` supports `--json` and `--plain`
+- `rankgeo keyword add` supports `--json`
+- `rankgeo keyword remove` supports `--json`
+
+Example workflow:
+```bash
+# See current keywords
+rankgeo keyword list <ws>
+
+# Add a keyword you want to rank for
+rankgeo keyword add <ws> "AI Search Optimization"
+
+# Remove a irrelevant keyword
+rankgeo keyword remove <ws> <keyword-id>
+
+# Re-run audit to test new keywords
+rankgeo audit trigger <ws>
+```
+
+## Competitor commands
+
+Competitors are brands tracked during audits. They appear in prompt results and feed into share-of-voice calculations.
+
+```bash
+rankgeo competitor list <ws>                              # List all competitors
+rankgeo competitor add <ws> "Competitor Name"             # Add a competitor
+rankgeo competitor add <ws> "Name" --url "https://..."   # Add with URL
+rankgeo competitor remove <ws> <competitor-id>            # Remove a competitor
+```
+
+Options:
+- `rankgeo competitor list` supports `--json` and `--plain`
+- `rankgeo competitor add` supports `--url <url>` and `--json`
+- `rankgeo competitor remove` supports `--json`
+
+Example workflow:
+```bash
+# See who you're tracked against
+rankgeo competitor list <ws>
+
+# Add a new competitor
+rankgeo competitor add <ws> "Otterly AI" --url "https://otterly.ai"
+
+# Remove a competitor you no longer care about
+rankgeo competitor remove <ws> <competitor-id>
+
+# Re-audit to see updated share of voice
+rankgeo audit trigger <ws>
+```
 
 ## Audit commands
 
@@ -71,7 +134,7 @@ rankgeo ingest trigger <ws> --no-wait # Fire-and-forget
 ```bash
 rankgeo suggestion list <ws>                                # All suggestions
 rankgeo suggestion list <ws> --status pending               # Filter by status
-rankgeo suggestion list <ws> --category content             # Filter by category (content|technical|credibility|competitive)
+rankgeo suggestion list <ws> --category content             # Filter by category (content|technical|credibility|competitive|schema|authoritativeness|comparison)
 rankgeo suggestion show <ws> <sid>                          # Full detail
 rankgeo suggestion apply <ws> <sid>                         # Mark applied (auto-schedules re-audit in 24h)
 rankgeo suggestion dismiss <ws> <sid>                       # Mark dismissed
@@ -169,9 +232,33 @@ rankgeo suggestion apply <ws> <sid>
 rankgeo audit trigger <ws>
 ```
 
+### Full optimization loop
+```bash
+# 1. Check current state
+rankgeo audit latest <ws>
+rankgeo keyword list <ws>
+rankgeo competitor list <ws>
+
+# 2. Adjust keywords and competitors
+rankgeo keyword add <ws> "new keyword to rank for"
+rankgeo competitor add <ws> "New Competitor" --url "https://..."
+
+# 3. Run audit
+rankgeo audit trigger <ws>
+
+# 4. Review and act on suggestions
+rankgeo suggestion list <ws> --status pending
+rankgeo suggestion apply <ws> <suggestion-id>
+
+# 5. Re-audit after changes take effect
+rankgeo audit trigger <ws>
+```
+
 ## Tips
 
 - Use `rankgeo workspace use` to set a default workspace so you don't pass `<ws>` on every command.
 - `RANKGEO_API_KEY` env var overrides the config file — useful for ephemeral containers and CI secrets.
 - The CLI respects `NO_COLOR=1` and auto-disables color when stdout is not a TTY.
 - API keys created via `rankgeo api-key create` are printed once and not stored in config.
+- Keywords and competitors are auto-detected during ingestion, but you can manually add/remove to fine-tune what's tracked.
+- After adding keywords or competitors, re-run the audit to see updated results.
