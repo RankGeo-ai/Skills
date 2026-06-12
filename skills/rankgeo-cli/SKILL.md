@@ -147,14 +147,6 @@ rankgeo report list <ws>    # List recommendations reports
 rankgeo report show <ws> <rid>  # Show full structured report
 ```
 
-## API key management
-
-```bash
-rankgeo api-key list               # List all keys (prefix + label + last used)
-rankgeo api-key create <label>     # Generate new key (printed once)
-rankgeo api-key revoke <id>        # Revoke a key
-```
-
 ## Output modes
 
 Every command supports these global flags:
