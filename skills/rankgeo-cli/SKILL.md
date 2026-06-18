@@ -10,7 +10,7 @@ description: Use the RankGeo CLI to run GEO audits, manage suggestions, trigger 
 ```bash
 npm install -g @rankgeo/cli
 # or install a specific version:
-npm install -g @rankgeo/cli@0.1.0
+npm install -g @rankgeo/cli@latest
 ```
 
 Verify: `rankgeo --help`
@@ -32,7 +32,7 @@ Config is stored at `~/.config/rankgeo/config.json` (mode 600).
 - **GEO Score** — 0-100 metric: `mention_rate × 0.6 + citation_rate × 0.4`
 - **Audit** — a GEO Score check run against Gemini with Google Search grounding.
 - **Suggestion** — AI-generated recommendation to improve score. Statuses: `pending`, `applied`, `dismissed`.
-- **Keyword** — a search term monitored during audits to check brand visibility.
+- **Prompt** — a search query monitored during audits to check brand visibility.
 - **Competitor** — a rival brand tracked in audit prompts to measure share of voice.
 
 ## Workspace commands
@@ -47,33 +47,33 @@ rankgeo workspace delete <id-or-name>                       # Remove
 
 Every command that needs a workspace resolves it in this order: `--workspace` flag > `current_workspace` in config > positional arg. Name resolution performs a one-shot lookup.
 
-## Keyword commands
+## Prompt commands
 
-Keywords are the search terms used to generate audit prompts. They determine what queries Gemini is tested against.
+Prompts are the search queries used during audits to check brand visibility in GenAI responses. They replace what was previously called "keywords."
 
 ```bash
-rankgeo keyword list <ws>                         # List all keywords
-rankgeo keyword add <ws> "new keyword"            # Add a keyword
-rankgeo keyword remove <ws> <keyword-id>          # Remove a keyword
+rankgeo prompt list [ws]                             # List all prompts
+rankgeo prompt add [ws] "your search query"          # Add a prompt
+rankgeo prompt remove [ws] <prompt-id>               # Remove a prompt
 ```
 
 Options:
-- `rankgeo keyword list` supports `--json` and `--plain`
-- `rankgeo keyword add` supports `--json`
-- `rankgeo keyword remove` supports `--json`
+- `rankgeo prompt list` supports `--json` and `--plain`
+- `rankgeo prompt add` supports `--json`
+- `rankgeo prompt remove` supports `--json`
 
 Example workflow:
 ```bash
-# See current keywords
-rankgeo keyword list <ws>
+# See current prompts
+rankgeo prompt list <ws>
 
-# Add a keyword you want to rank for
-rankgeo keyword add <ws> "AI Search Optimization"
+# Add a new prompt
+rankgeo prompt add <ws> "AI Search Optimization"
 
-# Remove a irrelevant keyword
-rankgeo keyword remove <ws> <keyword-id>
+# Remove an outdated prompt
+rankgeo prompt remove <ws> <prompt-id>
 
-# Re-run audit to test new keywords
+# Re-run audit to test new prompts
 rankgeo audit trigger <ws>
 ```
 
@@ -82,10 +82,10 @@ rankgeo audit trigger <ws>
 Competitors are brands tracked during audits. They appear in prompt results and feed into share-of-voice calculations.
 
 ```bash
-rankgeo competitor list <ws>                              # List all competitors
-rankgeo competitor add <ws> "Competitor Name"             # Add a competitor
-rankgeo competitor add <ws> "Name" --url "https://..."   # Add with URL
-rankgeo competitor remove <ws> <competitor-id>            # Remove a competitor
+rankgeo competitor list [ws]                              # List all competitors
+rankgeo competitor add [ws] "Competitor Name"             # Add a competitor
+rankgeo competitor add [ws] "Name" --url "https://..."   # Add with URL
+rankgeo competitor remove [ws] <competitor-id>            # Remove a competitor
 ```
 
 Options:
@@ -111,62 +111,68 @@ rankgeo audit trigger <ws>
 ## Audit commands
 
 ```bash
-rankgeo audit list <ws>                                     # History
-rankgeo audit latest <ws>                                   # Latest completed score
-rankgeo audit show <ws> <aid>                               # Full per-prompt detail
-rankgeo audit trigger <ws>                                  # Run with live spinner
-rankgeo audit trigger <ws> --no-wait                        # Fire-and-forget, returns audit ID
+rankgeo audit list [ws]                                     # List audit history
+rankgeo audit latest [ws]                                   # Latest completed score
+rankgeo audit show [ws] <aid>                               # Full per-prompt detail
+rankgeo audit trigger [ws]                                  # Run with live spinner
+rankgeo audit trigger [ws] --no-wait                        # Fire-and-forget, returns audit ID
+rankgeo audit trigger [ws] --poll-interval 5000             # Custom poll interval (default: 3000ms)
 rankgeo audit export <ws> <aid> --format json               # JSON to stdout
 rankgeo audit export <ws> <aid> --format md                 # Markdown to stdout
 ```
 
-`trigger` polls every 3s with progress updates from the pipeline (prompt generation → grounded queries → batch synthesis). Default timeout: 10 min.
+`trigger` polls every 3s (configurable via `--poll-interval`). Shows spinner with progress updates. Default timeout: 10 min.
 
 ## Ingestion
 
 ```bash
-rankgeo ingest trigger <ws>           # Re-scrape product URL (wait for completion)
-rankgeo ingest trigger <ws> --no-wait # Fire-and-forget
+rankgeo ingest trigger [ws]                         # Re-scrape product URL (wait for completion)
+rankgeo ingest trigger [ws] --no-wait               # Fire-and-forget, returns workspace ID
+rankgeo ingest trigger [ws] --poll-interval 5000    # Custom poll interval (default: 3000ms)
 ```
+
+Polls workspace status until `ingestionStatus` is `done` or `error`, showing page count in spinner.
 
 ## Suggestion commands
 
 ```bash
-rankgeo suggestion list <ws>                                # All suggestions
-rankgeo suggestion list <ws> --status pending               # Filter by status
-rankgeo suggestion list <ws> --category content             # Filter by category (content|technical|credibility|competitive|schema|authoritativeness|comparison)
-rankgeo suggestion show <ws> <sid>                          # Full detail
-rankgeo suggestion apply <ws> <sid>                         # Mark applied (auto-schedules re-audit in 24h)
-rankgeo suggestion dismiss <ws> <sid>                       # Mark dismissed
+rankgeo suggestion list [ws]                                # All suggestions
+rankgeo suggestion list [ws] --status pending               # Filter by status
+rankgeo suggestion list [ws] --category content             # Filter by category (content|technical|credibility|competitive)
+rankgeo suggestion show [ws] <sid>                          # Full detail
+rankgeo suggestion apply [ws] <sid>                         # Mark applied (auto-schedules re-audit in 24h)
+rankgeo suggestion dismiss [ws] <sid>                       # Mark dismissed
 ```
 
 ## Report commands
 
 ```bash
-rankgeo report list <ws>    # List recommendations reports
-rankgeo report show <ws> <rid>  # Show full structured report
+rankgeo report list [ws]    # List recommendations reports
+rankgeo report show [ws] <rid>  # Show full structured report
 ```
 
 ## Output modes
 
-Every command supports these global flags:
+These flags are available:
 
 | Flag | Effect |
 |------|--------|
-| `--json` | Raw JSON to stdout (pipe to `jq`) |
-| `--plain` | TSV / key=value for `awk` |
+| `--json` | Raw JSON to stdout (pipe to `jq`) — inherited by all subcommands |
+| `--plain` | TSV output for `awk` — available on `list`-type subcommands only |
 | `--no-color` | Disable ANSI |
-| `--workspace <id-or-name>` | Override active workspace |
+| `--workspace <id-or-name>` | Override active workspace on per-command basis |
 
-Logs/progress go to stderr. Results go to stdout. `rankgeo audit show <ws> <aid> > audit.json` works cleanly.
+Logs/progress go to stderr. Results go to stdout. `rankgeo audit show <ws> <aid> > audit.json` works cleanly. Use `[ws]` notation where workspace is optional — resolved from config if omitted.
 
 ## Configuration & env vars
 
 ```bash
-rankgeo config get api-url          # Current backend URL
-rankgeo config set api-url <url>    # Switch backend (staging, localhost, etc.)
-rankgeo config set consent-url <url> # Custom OAuth consent page URL
+rankgeo config list                 # Show all stored config values
+rankgeo config get api-url          # Show a specific config key
+rankgeo config set api-url <url>    # Write a config key (api-url, api-key, consent-url, current-workspace)
 ```
+
+`config list` redacts `api-key` as `<prefix>.****`. Use `--json` for structured output.
 
 Environment variable overrides (per-invocation, never written to disk):
 
@@ -176,6 +182,19 @@ Environment variable overrides (per-invocation, never written to disk):
 | `RANKGEO_API_KEY` | API key |
 | `RANKGEO_CONFIG` | Config file path |
 | `NO_COLOR` | Disable color output |
+
+## API Key commands
+
+```bash
+rankgeo api-key list                              # List all API keys (label, prefix, last used)
+rankgeo api-key create "my-key"                   # Generate a new API key (shown once)
+rankgeo api-key revoke <key-id>                   # Revoke/delete an API key
+```
+
+Options:
+- `rankgeo api-key list` supports `--json` and `--plain`
+
+API keys use the format `rgk_<prefix>.<random>`. The full key is printed once on creation — it cannot be retrieved later.
 
 ## Exit codes for scripting
 
@@ -207,6 +226,13 @@ rankgeo suggestion list <ws> --status pending --json | jq -r '.[0].id'
 rankgeo suggestion apply <ws> <id>
 ```
 
+### Create and use an API key for CI
+```bash
+rankgeo api-key create "ci-key"
+# Save the printed key as RANKGEO_API_KEY in CI secrets
+rankgeo login --token <printed-key>
+```
+
 ### Bulk create workspaces from a list
 ```bash
 cat urls.txt | xargs -I{} rankgeo workspace create {} --name {}
@@ -228,11 +254,11 @@ rankgeo audit trigger <ws>
 ```bash
 # 1. Check current state
 rankgeo audit latest <ws>
-rankgeo keyword list <ws>
+rankgeo prompt list <ws>
 rankgeo competitor list <ws>
 
-# 2. Adjust keywords and competitors
-rankgeo keyword add <ws> "new keyword to rank for"
+# 2. Adjust prompts and competitors
+rankgeo prompt add <ws> "new search query to rank for"
 rankgeo competitor add <ws> "New Competitor" --url "https://..."
 
 # 3. Run audit
@@ -252,5 +278,5 @@ rankgeo audit trigger <ws>
 - `RANKGEO_API_KEY` env var overrides the config file — useful for ephemeral containers and CI secrets.
 - The CLI respects `NO_COLOR=1` and auto-disables color when stdout is not a TTY.
 - API keys created via `rankgeo api-key create` are printed once and not stored in config.
-- Keywords and competitors are auto-detected during ingestion, but you can manually add/remove to fine-tune what's tracked.
-- After adding keywords or competitors, re-run the audit to see updated results.
+- Prompts and competitors are auto-detected during ingestion, but you can manually add/remove to fine-tune what's tracked.
+- After adding prompts or competitors, re-run the audit to see updated results.
